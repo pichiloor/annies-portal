@@ -66,3 +66,42 @@ class Purchase(models.Model):
 
     def __str__(self):
         return f"{self.product} - {self.cost}"
+
+class SaleSummary(models.Model):
+    store_id    = models.IntegerField()
+    city        = models.CharField(max_length=100)
+    product_id  = models.IntegerField()
+    description = models.CharField(max_length=255)
+    vendor_id   = models.IntegerField()
+    vendor_name = models.CharField(max_length=255)
+    year        = models.IntegerField()
+    month       = models.IntegerField()
+    total_revenue   = models.DecimalField(max_digits=14, decimal_places=2)
+    total_qty_sold  = models.IntegerField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['year', 'month']),
+            models.Index(fields=['store_id', 'year', 'month']),
+            models.Index(fields=['city', 'year', 'month']),
+        ]
+
+
+class PurchaseSummary(models.Model):
+    store_id    = models.IntegerField()
+    city        = models.CharField(max_length=100)
+    product_id  = models.IntegerField()
+    description = models.CharField(max_length=255)
+    vendor_id   = models.IntegerField()
+    vendor_name = models.CharField(max_length=255)
+    year        = models.IntegerField()
+    month       = models.IntegerField()
+    total_cost       = models.DecimalField(max_digits=14, decimal_places=2)
+    total_qty_bought = models.IntegerField()
+
+    class Meta:
+        indexes = [
+            models.Index(fields=['year', 'month']),
+            models.Index(fields=['store_id', 'year', 'month']),
+            models.Index(fields=['city', 'year', 'month']),
+        ]

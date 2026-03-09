@@ -5,7 +5,7 @@ from django.db.models import Sum
 from plotly.offline import plot
 import plotly.graph_objects as go
 
-from .models import Sale, Purchase, Store
+from .models import SaleSummary, PurchaseSummary, Store
 
 
 @login_required
@@ -22,8 +22,10 @@ def dashboard(request):
         return render(request, 'dashboard.html', cached)
 
     # Opciones disponibles
-    available_years = sorted(Sale.objects.dates('sales_date', 'year'), reverse=True)
-    available_years = [d.year for d in available_years]
+    available_years = sorted(
+        SaleSummary.objects.values_list('year', flat=True).distinct(),
+        reverse=True
+    )
     months = [
         (1,'January'),(2,'February'),(3,'March'),(4,'April'),
         (5,'May'),(6,'June'),(7,'July'),(8,'August'),
@@ -34,31 +36,37 @@ def dashboard(request):
     if selected_city:
         available_stores = available_stores.filter(city=selected_city)
 
-    # Revenue por producto
-    sales_qs = Sale.objects.all()
+    # Revenue por producto (desde SaleSummary)
+    sales_qs = SaleSummary.objects.all()
     if selected_year:
-        sales_qs = sales_qs.filter(sales_date__year=selected_year)
+        sales_qs = sales_qs.filter(year=selected_year)
     if selected_month:
-        sales_qs = sales_qs.filter(sales_date__month=selected_month)
+        sales_qs = sales_qs.filter(month=selected_month)
     if selected_store:
-        sales_qs = sales_qs.filter(store__store_id=selected_store)
+        sales_qs = sales_qs.filter(store_id=selected_store)
     elif selected_city:
-        sales_qs = sales_qs.filter(store__city=selected_city)
+        sales_qs = sales_qs.filter(city=selected_city)
 
-    sales = sales_qs.values('product_id', 'product__description').annotate(total_revenue=Sum('revenue'), total_qty_sold=Sum('quantity'))
+    sales = sales_qs.values('product_id', 'description').annotate(
+        total_revenue=Sum('total_revenue'),
+        total_qty_sold=Sum('total_qty_sold'),
+    )
 
-    # Cost por producto
-    purchases_qs = Purchase.objects.all()
+    # Cost por producto (desde PurchaseSummary)
+    purchases_qs = PurchaseSummary.objects.all()
     if selected_year:
-        purchases_qs = purchases_qs.filter(po_date__year=selected_year)
+        purchases_qs = purchases_qs.filter(year=selected_year)
     if selected_month:
-        purchases_qs = purchases_qs.filter(po_date__month=selected_month)
+        purchases_qs = purchases_qs.filter(month=selected_month)
     if selected_store:
-        purchases_qs = purchases_qs.filter(store__store_id=selected_store)
+        purchases_qs = purchases_qs.filter(store_id=selected_store)
     elif selected_city:
-        purchases_qs = purchases_qs.filter(store__city=selected_city)
+        purchases_qs = purchases_qs.filter(city=selected_city)
 
-    purchases = purchases_qs.values('product_id').annotate(total_cost=Sum('cost'), total_qty_bought=Sum('quantity'))
+    purchases = purchases_qs.values('product_id').annotate(
+        total_cost=Sum('total_cost'),
+        total_qty_bought=Sum('total_qty_bought'),
+    )
 
     # Combinar en un dict por product_id
     cost_map = {p['product_id']: (p['total_cost'], p['total_qty_bought']) for p in purchases}
@@ -66,7 +74,7 @@ def dashboard(request):
     results = []
     for s in sales:
         pid = s['product_id']
-        name = s['product__description']
+        name = s['description']
         revenue = float(s['total_revenue'])
         qty_sold = int(s['total_qty_sold'])
         cost, qty_bought = (float(cost_map[pid][0]), int(cost_map[pid][1])) if pid in cost_map else (0, 0)
@@ -89,16 +97,15 @@ def dashboard(request):
         textposition='inside',
     ))
     fig.update_layout(
-            title=dict(
-        text='<b>Top 10 Products by Profit</b>',
-        x=0.5,
-        xanchor='center',
-    ),
+        title=dict(
+            text='<b>Top 10 Products by Profit</b>',
+            x=0.5,
+            xanchor='center',
+        ),
         xaxis_title='Profit ($)',
         yaxis=dict(autorange='reversed'),
         margin=dict(l=200, r=20),
     )
-
     chart_profit = plot(fig, output_type='div', include_plotlyjs=True)
 
     # Top 10 por margin — solo productos con costo registrado
@@ -126,21 +133,21 @@ def dashboard(request):
     )
     chart_margin = plot(fig2, output_type='div', include_plotlyjs=False)
 
-    # --- Vendor charts ---
+    # --- Vendor charts (vendor_id ya está directo en SaleSummary) ---
     sales_vendor = sales_qs.values(
-        'product__vendor_id', 'product__vendor__vendor_name'
-    ).annotate(total_revenue=Sum('revenue'))
+        'vendor_id', 'vendor_name'
+    ).annotate(total_revenue=Sum('total_revenue'))
 
     purchases_vendor = purchases_qs.values(
-        'vendor_id', 'vendor__vendor_name'
-    ).annotate(total_cost=Sum('cost'))
+        'vendor_id', 'vendor_name'
+    ).annotate(total_cost=Sum('total_cost'))
 
     vendor_cost_map = {p['vendor_id']: p['total_cost'] for p in purchases_vendor}
 
     vendor_results = []
     for s in sales_vendor:
-        vid = s['product__vendor_id']
-        name = s['product__vendor__vendor_name']
+        vid = s['vendor_id']
+        name = s['vendor_name']
         if not name:
             continue
         revenue = float(s['total_revenue'])
@@ -207,5 +214,5 @@ def dashboard(request):
         'selected_store': selected_store,
         'losing_products': losing_products,
     }
-    cache.set(cache_key, context, 3600)  # 60 minutos
+    cache.set(cache_key, context, 3600)
     return render(request, 'dashboard.html', context)
