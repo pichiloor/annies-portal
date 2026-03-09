@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="p-6">
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-2xl font-bold text-gray-800">Annie's Dashboard</h1>
+
+        <form method="get" class="flex items-center gap-3">
+            <select name="year" onchange="this.form.submit()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All Years</option>
+                {% for year in available_years %}
+                <option value="{{ year }}" {% if selected_year == year|stringformat:"s" %}selected{% endif %}>{{ year }}</option>
+                {% endfor %}
+            </select>
+            <select name="month" onchange="this.form.submit()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All Months</option>
+                {% for num, name in months %}
+                <option value="{{ num }}" {% if selected_month == num|stringformat:"s" %}selected{% endif %}>{{ name }}</option>
+                {% endfor %}
+            </select>
+            <select name="city" onchange="this.form.submit()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All Cities</option>
+                {% for city in available_cities %}
+                <option value="{{ city }}" {% if selected_city == city %}selected{% endif %}>{{ city }}</option>
+                {% endfor %}
+            </select>
+            <select name="store" onchange="this.form.submit()" class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">All Stores</option>
+                {% for store in available_stores %}
+                <option value="{{ store.store_id }}" {% if selected_store == store.store_id|stringformat:"s" %}selected{% endif %}>{{ store.store_id }}</option>
+                {% endfor %}
+            </select>
+        </form>
+
+        <form method="post" action="{% url 'logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="text-sm text-gray-500 hover:text-red-500">Logout</button>
+        </form>
+    </div>
+
+    <div class="grid grid-cols-2 grid-rows-2 gap-4">
+        <div class="bg-white rounded-xl shadow p-4">
+            {{ chart_profit|safe }}
+        </div>
+        <div class="bg-white rounded-xl shadow p-4">
+            {{ chart_margin|safe }}
+        </div>
+        <div class="bg-white rounded-xl shadow p-4">
+            {{ chart_vendor_profit|safe }}
+        </div>
+        <div class="bg-white rounded-xl shadow p-4">
+            {{ chart_vendor_margin|safe }}
+        </div>
+    </div>
+
+    {% if losing_products %}
+    <div class="mt-6 bg-white rounded-xl shadow p-4">
+        <h2 class="text-lg font-bold text-red-600 mb-3">Products to Drop — Worst Margin (Top 50 Losing Money)</h2>
+        <div class="overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead>
+                    <tr class="border-b text-gray-500 uppercase text-xs">
+                        <th class="py-2 pr-4">Product</th>
+                        <th class="py-2 pr-4 text-right">Units Bought</th>
+                        <th class="py-2 pr-4 text-right">Units Sold</th>
+                        <th class="py-2 pr-4 text-right">Revenue</th>
+                        <th class="py-2 pr-4 text-right">Cost</th>
+                        <th class="py-2 pr-4 text-right">Profit</th>
+                        <th class="py-2 text-right">Margin</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in losing_products %}
+                    <tr class="border-b hover:bg-red-50">
+                        <td class="py-2 pr-4 font-medium text-gray-800">{{ p.name }}</td>
+                        <td class="py-2 pr-4 text-right text-gray-600">{{ p.qty_bought }}</td>
+                        <td class="py-2 pr-4 text-right text-gray-600">{{ p.qty_sold }}</td>
+                        <td class="py-2 pr-4 text-right text-gray-600">${{ p.revenue|floatformat:0 }}</td>
+                        <td class="py-2 pr-4 text-right text-gray-600">${{ p.cost|floatformat:0 }}</td>
+                        <td class="py-2 pr-4 text-right font-semibold text-red-600">${{ p.profit|floatformat:0 }}</td>
+                        <td class="py-2 text-right text-red-600">{{ p.margin|floatformat:1 }}%</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="mt-6 bg-white rounded-xl shadow p-4">
+        <p class="text-green-600 font-medium">All products are profitable for the selected period.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
