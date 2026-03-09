@@ -9,6 +9,7 @@ A dashboard for Annie, owner of a liquor distribution company in the US. It show
 - [Docker](https://www.docker.com/)
 - [Docker Compose](https://docs.docker.com/compose/)
 - A `.env` file in the root folder (see below)
+- CSV source files in the `data/` folder (not included in the repo)
 
 ---
 
@@ -24,6 +25,8 @@ POSTGRES_USER=annies_user
 POSTGRES_PASSWORD=yourpassword
 POSTGRES_HOST=db
 POSTGRES_PORT=5432
+DJANGO_SECRET_KEY=your-secret-key-here
+DJANGO_DEBUG=True
 ```
 
 ### 2. Start the project
@@ -42,7 +45,7 @@ docker compose exec web python manage.py migrate
 
 ### 4. Load the data
 
-Run these commands in this exact order:
+Place the CSV files in the `data/` folder, then run these commands in this exact order:
 
 ```bash
 docker compose exec web python manage.py load_stores
@@ -53,13 +56,25 @@ docker compose exec web python manage.py load_purchases
 
 Each command reads a CSV file from the `data/` folder and saves it to the database.
 
-### 5. Create a superuser (admin access)
+### 5. Build the summary tables
+
+After loading the data, build the pre-aggregated summary tables used by the dashboard:
+
+```bash
+docker compose exec web python manage.py build_summaries
+```
+
+This collapses millions of transaction rows into summary tables grouped by store, product, vendor, year and month. It makes the dashboard significantly faster (from ~17 seconds to ~500ms per query).
+
+Run this command again whenever new data is loaded.
+
+### 6. Create a superuser (admin access)
 
 ```bash
 docker compose exec web python manage.py createsuperuser
 ```
 
-### 6. Create Annie's user
+### 7. Create Annie's user
 
 ```bash
 docker compose exec web python manage.py shell -c "
@@ -68,12 +83,23 @@ User.objects.create_user(username='annie', password='yourpassword')
 "
 ```
 
-### 7. Open the app
+### 8. Open the app
 
 Go to [http://localhost:8000](http://localhost:8000) and log in with Annie's credentials.
 
 Admin panel is at [http://localhost:8000/admin](http://localhost:8000/admin).
- |
+
+---
+
+## Scheduled refresh (optional)
+
+To automatically rebuild the summary tables every night, add this line to your crontab (`crontab -e`):
+
+```
+0 2 * * * cd /path/to/annies-portal && docker compose exec -T web python manage.py build_summaries >> /tmp/build_summaries.log 2>&1
+```
+
+This runs at 2:00am every day. Logs are written to `/tmp/build_summaries.log`.
 
 ---
 
@@ -84,12 +110,12 @@ annies-portal/
 ├── backend/
 │   ├── config/          # Django settings and URLs
 │   ├── portal/          # Main app
-│   │   ├── models.py    # Database models
+│   │   ├── models.py    # Database models (including summary tables)
 │   │   ├── views.py     # Dashboard logic
 │   │   ├── templates/   # HTML templates
-│   │   └── management/commands/  # Commands to load CSV data
+│   │   └── management/commands/  # Data loading and summary commands
 │   └── requirements.txt
-├── data/                # CSV source files
+├── data/                # CSV source files (not in git)
 ├── docker-compose.yml
 └── .env                 # Your environment variables (not in git)
 ```
@@ -98,7 +124,7 @@ annies-portal/
 
 ## Models
 
-The app has 5 models:
+The app has 5 core models and 2 summary models:
 
 **Vendor** — a supplier company.
 - `vendor_number` — ID from the original data
@@ -131,6 +157,8 @@ The app has 5 models:
 - `cost` — total dollars paid (quantity × purchase price)
 - `purchase_price` — unit purchase price
 - `po_date` — date of the purchase order
+
+**SaleSummary / PurchaseSummary** — pre-aggregated summary tables used by the dashboard. Grouped by store, product, vendor, year and month. Rebuilt by running `build_summaries`.
 
 ---
 
