@@ -15,7 +15,10 @@ services:
   web:
     build: ./backend
     container_name: annie_web
-    command: python manage.py runserver 0.0.0.0:8000
+    # DEVELOPMENT
+    # command: python manage.py runserver 0.0.0.0:8000
+    # PRODUCTION
+    command: gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 2
     volumes:
       - ./backend:/app
       - ./data:/app/data

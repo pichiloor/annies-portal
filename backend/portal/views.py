@@ -139,7 +139,7 @@ def dashboard(request):
     ).annotate(total_revenue=Sum('total_revenue'))
 
     purchases_vendor = purchases_qs.values(
-        'vendor_id', 'vendor_name'
+        'vendor_id'
     ).annotate(total_cost=Sum('total_cost'))
 
     vendor_cost_map = {p['vendor_id']: p['total_cost'] for p in purchases_vendor}
@@ -148,7 +148,7 @@ def dashboard(request):
     for s in sales_vendor:
         vid = s['vendor_id']
         name = s['vendor_name']
-        if not name:
+        if not name or vid == 0:
             continue
         revenue = float(s['total_revenue'])
         cost = float(vendor_cost_map.get(vid, 0))
