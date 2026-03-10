@@ -12,3 +12,5 @@ staticfiles/
 .vscode/
 .DS_Store
 data/
+*.pdf
+*.pdf:Zone.Identifier
