@@ -3,4 +3,3 @@ psycopg2-binary==2.9.11
 pandas==3.0
 plotly==6.6
 gunicorn==25.0
-python-dotenv==1.2.2
